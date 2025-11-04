@@ -10,6 +10,9 @@
   },
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "@google/genai": "^1.27.0",
     "@langchain/community": "^0.3.57",

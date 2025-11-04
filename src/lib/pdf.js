@@ -9,8 +9,7 @@ const { RecursiveCharacterTextSplitter } = require('@langchain/textsplitters');
 const { default: supabase } = require("./supabase");
 const weaviateLib = require('weaviate-client').default;
 const { PDFLoader } = require('@langchain/community/document_loaders/fs/pdf');
-import { GoogleGenAI } from '@google/genai';
-import { type } from 'os';
+const { GoogleGenAI } = require('@google/genai');
 
 // PDF.js worker setup (Япон хэлний тохиргоо)
 // pdfjs.GlobalWorkerOptions.workerSrc = '../../node_modules/pdfjs-dist/build/pdf.worker.mjs';
