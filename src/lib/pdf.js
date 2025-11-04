@@ -4,14 +4,8 @@ const fs = require("fs").promises;
 const { GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { WeaviateStore } = require('@langchain/weaviate');
-// Lazy-load pdfjs as ES Module (Vercel compatibility fix)
-let pdfjs = null;
-const getPdfjs = async () => {
-    if (!pdfjs) {
-        pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-    }
-    return pdfjs;
-};
+// Use CommonJS compatible pdfjs-dist (Vercel/TypeScript compatibility)
+const pdfjs = require("pdfjs-dist/legacy/build/pdf.js");
 const { RecursiveCharacterTextSplitter } = require('@langchain/textsplitters');
 const { default: supabase } = require("./supabase");
 const weaviateLib = require('weaviate-client').default;
@@ -90,8 +84,7 @@ export async function ingestPdfToVectorDB(pdfPath, indexName = "default_books_in
 
         console.log('✅ PDF.js paths:', { cmapsPath, fontsPath });
 
-        const pdfjsLib = await getPdfjs();
-        const loadingTask = pdfjsLib.getDocument({
+        const loadingTask = pdfjs.getDocument({
             data: new Uint8Array(dataBuffer),
             cMapUrl: cmapsPath,
             cMapPacked: true,
@@ -241,8 +234,7 @@ async function askQuestion(query, indexName, bookName, conversationId, pdfUrl, c
 
     console.log('✅ PDF.js paths:', { cmapsPath, fontsPath });
 
-    const pdfjsLib = await getPdfjs();
-    const loadingTask = pdfjsLib.getDocument({
+    const loadingTask = pdfjs.getDocument({
         data: arrayBuffer,
         cMapUrl: cmapsPath,
         cMapPacked: true,
