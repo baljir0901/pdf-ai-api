@@ -155,7 +155,7 @@ router.post("/chat", async (req, res) => {
 
         console.log("✓ Calling askQuestion with:", { question: question.substring(0, 50) + "...", id, conversationId });
 
-        const result = await askQuestion(question, id, id, conversationId,req.body.pdfUrl,req.body.currentPage);
+        const result = await askQuestion(question, id, id, conversationId, req.body.pdfUrl, req.body.currentPage, req.body.secondPage);
 
         console.log("✅ Chat response generated successfully");
         console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
@@ -169,6 +169,86 @@ router.post("/chat", async (req, res) => {
         res.status(500).json({
             ok: false,
             error: error.message || "Chat failed",
+            details: error.toString()
+        });
+    }
+})
+
+/**
+ * 🎯 Page Summary Endpoint
+ * Хуудас солигдох бүр автоматаар тухайн хуудасны агуулгыг тайлбарлах
+ */
+router.post("/page-summary", async (req, res) => {
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("📄 [PDF-AI-API] POST /api/v1/page-summary");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("📦 Request Body:", JSON.stringify(req.body, null, 2));
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    try {
+        const { id, pageNumber, secondPageNumber, bookName, conversationHistory } = req.body;
+
+        if (!id || !pageNumber) {
+            console.error("❌ Missing required parameters");
+            return res.status(400).json({
+                ok: false,
+                error: "id and pageNumber are required"
+            });
+        }
+
+        const pageRange = secondPageNumber ? `${pageNumber}-${secondPageNumber}` : `${pageNumber}`;
+        console.log(`✓ Getting summary for page(s) ${pageRange} from collection ${id}`);
+
+        // 🎓 アクティブ・ティーチング: ページを開いた直後に積極的に教える
+        const autoQuestion = secondPageNumber 
+            ? `📚 生徒が今、${pageNumber}〜${secondPageNumber}ページを開きました。
+
+**あなたの役割:**
+1. このページで学ぶ**最も重要な1つのポイント**を簡潔に紹介してください
+2. 「このページでは〇〇について学びます」と明確に伝えてください
+3. その後、「〇〇って聞いたことありますか？」と質問で理解度を確認してください
+
+**重要:** 
+- 要約やリスト化はしないでください
+- 一つの概念に絞って、対話形式で始めてください
+- 生徒が理解できるよう、優しく丁寧に説明してください
+
+さあ、生徒との対話を始めましょう！😊`
+            : `📚 生徒が今、${pageNumber}ページを開きました。
+
+**あなたの役割:**
+1. このページで学ぶ**最も重要な1つのポイント**を簡潔に紹介してください
+2. 「このページでは〇〇について学びます」と明確に伝えてください
+3. その後、「〇〇って聞いたことありますか？」と質問で理解度を確認してください
+
+**重要:** 
+- 要約やリスト化はしないでください
+- 一つの概念に絞って、対話形式で始めてください
+- 生徒が理解できるよう、優しく丁寧に説明してください
+
+さあ、生徒との対話を始めましょう！😊`;
+
+        const result = await askQuestion(autoQuestion, id, bookName, null, req.body.pdfUrl, pageNumber, secondPageNumber);
+
+        console.log("✅ Page summary generated successfully");
+        console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        res.json({
+            ok: true,
+            summary: result.answer,
+            pageNumber: pageNumber,
+            secondPageNumber: secondPageNumber,
+            sourcePages: result.sourcePages || [pageNumber],
+            displayPages: result.displayPages || [pageNumber],
+        });
+    } catch (error) {
+        console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.error("❌ Page Summary Error:", error);
+        console.error("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+        res.status(500).json({
+            ok: false,
+            error: error.message || "Page summary failed",
             details: error.toString()
         });
     }

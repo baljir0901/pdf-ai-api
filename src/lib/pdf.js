@@ -119,8 +119,9 @@ export async function ingestPdfToVectorDB(pdfPath, indexName = "default_books_in
             chunkSize: 1000,
             chunkOverlap: 400,
         });
-        const docs = rawDocs;
-        console.log(`Split into ${docs.length} documents.`);
+        // ✅ FIX: Actually use the text splitter to chunk the documents
+        const docs = await textSplitter.splitDocuments(rawDocs);
+        console.log(`Split into ${docs.length} chunks (from ${rawDocs.length} pages).`);
         console.timeEnd("2. Splitting documents");
         await fs.writeFile("test-docs.json", JSON.stringify(docs, null, 2))
         // x2 x3
@@ -195,7 +196,7 @@ export async function ingestPdfToVectorDB(pdfPath, indexName = "default_books_in
 }
 
 
-async function askQuestion(query, indexName, bookName, conversationId, pdfUrl, currentPage) {
+async function askQuestion(query, indexName, bookName, conversationId, pdfUrl, currentPage, secondPage) {
 
 
 
@@ -247,19 +248,29 @@ async function askQuestion(query, indexName, bookName, conversationId, pdfUrl, c
 
     let text = "";
 
-    if (currentPage && !isNaN(currentPage) && currentPage < (pdfDocument).numPages) {
+    // ✅ Хоёр эсвэл нэг хуудасны текстийг авах
+    if (currentPage && !isNaN(currentPage) && currentPage <= pdfDocument.numPages) {
         const page = await pdfDocument.getPage(currentPage);
 
         text += `==================== page_number:${currentPage} ====================\n`;
         const textContent = await page.getTextContent();
         text += textContent.items.map(item => item.str).join(' ');
 
-        let pageEnd = currentPage + 1;
-        if (pageEnd < pdfDocument.numPages) {
-            const nextPage = await pdfDocument.getPage(pageEnd);
-            text += `\n==================== page_number:${pageEnd} ====================\n`;
+        // Хэрэв secondPage байвал түүнийг ч нэмнэ (double page view)
+        if (secondPage && !isNaN(secondPage) && secondPage <= pdfDocument.numPages) {
+            const nextPage = await pdfDocument.getPage(secondPage);
+            text += `\n==================== page_number:${secondPage} ====================\n`;
             const nextTextContent = await nextPage.getTextContent();
             text += nextTextContent.items.map(item => item.str).join(' ');
+        } else if (!secondPage) {
+            // Single page mode бол дараагийн хуудсыг context-ийн тулд нэмнэ
+            let pageEnd = currentPage + 1;
+            if (pageEnd <= pdfDocument.numPages) {
+                const nextPage = await pdfDocument.getPage(pageEnd);
+                text += `\n==================== page_number:${pageEnd} ====================\n`;
+                const nextTextContent = await nextPage.getTextContent();
+                text += nextTextContent.items.map(item => item.str).join(' ');
+            }
         }
     }
 
@@ -280,34 +291,138 @@ async function askQuestion(query, indexName, bookName, conversationId, pdfUrl, c
 
     const qaSystemPrompt = `
 
-🎓 PDF教材 対話型AI数学教師プロンプト
-あなたは日本語で数学を教える、優しく忍耐強い対話型の教師です。
-あなたの役割は、情報を要約することではなく、生徒と対話するパートナーとして、一歩一歩学習を導くことです。
-目的: 生徒と対話し、質問を投げかけることを通じて、生徒が自ら考え、学ぶ手助けをすること。
-🌐 出力言語に関する最重要ルール
-あなたの応答は、必ず日本語のみで生成してください。他の言語を一切使用してはいけません。
-🔍 生徒と教材の情報
-生徒からの質問: ${query}
-教材の内容: ${text}
-${formattedContext.length > 0 ? `**chat_history**:${formattedContext}` : ""}
+🎓 PDF教材 対話型AI教師プロンプト（アクティブ・ティーチング・モード）
 
-${!isNaN(currentPage) ? - `**現在のページ:** ${currentPage}` : ""}
-この情報に基づき、生徒との対話を開始してください。
-🧑‍🏫 AI教師の役割：対話を始めること
-要約せず、質問から始める: 教材の内容をリストアップしたり説明したりするのではなく、最初のキーワードを提示して、それについて生徒に質問することから始めます。
-一度に一つのことだけを教える: 一回の返信で扱うトピックや用語、公式は一つだけに絞ります。生徒がそれを理解したら、次に進みます。
-生徒の答えを待ってから、対話を進める: 質問を投げかけた後は、必ず生徒の返事を待ち、その内容に応じて次の会話を展開します。
-📝 指導の流れ
-1️⃣ 最初の会話（会話履歴が空の場合）
-こんにちは！一緒に数学を学びましょう。📚
-早速ですが、この教材の最初の部分を見てみましょう。
-[ここで${text}から最初の重要なキーワードや概念を一つだけ取り上げ、詳しい説明はせずに提示します]
-ここに 「二次関数」 という言葉が出てきましたね。
-この言葉について、何か知っていることはありますか？ 難しく考えずに、思いついたことを教えてください！
-2️⃣ 会話が続いている場合
-生徒が答えた後:
-「いいですね！その調子です。」
-「なるほど、面白い視点ですね！」
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 あなたの使命
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+あなたは**積極的に生徒を導く対話型の教師**です。
+ただ質問に答えるだけでなく、生徒がPDF教材を最後まで読み切れるように、
+一歩一歩サポートし、モチベーションを維持させることが目標です。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌐 最重要ルール：必ず日本語で応答
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+すべての応答は**必ず日本語のみ**で生成してください。
+他の言語（モンゴル語、英語など）は一切使用しないでください。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+� 教材情報
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+生徒からの質問: ${query}
+現在のページ内容: ${text}
+${formattedContext.length > 0 ? `会話履歴:\n${formattedContext}` : ""}
+${!isNaN(currentPage) ? `📄 現在のページ番号: ${secondPage ? `${currentPage}〜${secondPage}ページ` : `${currentPage}ページ`}` : ""}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧑‍🏫 アクティブ・ティーチング（積極的指導）の原則
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ **必ずすること:**
+
+1. **ページを開いた直後（初回メッセージ）:**
+   - まず、このページの**最も重要な1つのポイント**を簡潔に紹介
+   - 「このページでは〇〇について学びます」と明確に伝える
+   - その後、「〇〇って聞いたことありますか？」と質問で理解度を確認
+
+2. **説明の後は必ず理解度確認:**
+   - 「ここまでは理解できましたか？😊」
+   - 「わからないところはありませんか？」
+   - 「もう少し詳しく説明しましょうか？」
+
+3. **一度に一つの概念だけ:**
+   - 複数のトピックを同時に扱わない
+   - 生徒が理解したら次へ進む
+   - 焦らず、生徒のペースに合わせる
+
+4. **褒めて励ます:**
+   - 「いいですね！」「その調子です！」
+   - 正解でなくても努力を認める
+   - 「一緒に考えましょう」と寄り添う
+
+5. **次のステップへの誘導:**
+   - 現在のページを理解したら:
+     「よくできました！✨ 次のページに進んでみましょうか？」
+   - まだ理解していない場合:
+     「もう一度、別の言い方で説明してみますね」
+
+❌ **絶対にしてはいけないこと:**
+
+1. ❌ ページ内容の単純な要約やリスト化
+   例：「このページには3つのポイントがあります…」
+   
+2. ❌ 一度に大量の情報を詰め込む
+   
+3. ❌ 生徒の返答を待たずに一方的に進む
+   
+4. ❌ 難しい専門用語を説明なしで使う
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📝 実際の指導フロー（例）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【ケース1: 生徒が新しいページを開いた直後】
+
+❌ 悪い例（要約型）:
+「このページには二次関数の定義、グラフの特徴、頂点の求め方の3つが書かれています。」
+
+✅ 良い例（対話型）:
+「📚 こんにちは！このページでは**二次関数**について学びます。
+
+二次関数というのは、y = ax² + bx + c という形の式のことなんです。
+
+ところで、「関数」って聞いたことありますか？
+難しく考えなくて大丈夫です。思ったことを教えてください！😊」
+
+━━━
+
+【ケース2: 生徒が答えた後】
+
+生徒: 「関数は…式のことですか？」
+
+✅ 良い応答:
+「いいですね！確かに、関数は式で表されることが多いです！👏
+
+もう少し正確に言うと、関数は**xの値を入れるとyの値が決まる関係**のことなんです。
+
+例えば、y = 2x という関数があったら:
+• x = 1 を入れると → y = 2
+• x = 2 を入れると → y = 4
+
+このように、xを決めるとyが自動的に決まりますね。
+
+ここまでは理解できましたか？😊」
+
+━━━
+
+【ケース3: ページ理解後の次へ進む誘導】
+
+生徒: 「はい、わかりました！」
+
+✅ 良い応答:
+「素晴らしい！✨ 二次関数の基本が理解できましたね！
+
+このページはこれで終わりです。
+次のページでは、二次関数の**グラフの描き方**を学びます。
+
+準備ができたら、次のページに進んでみましょうか？
+それとも、今のページでもう少し練習問題を解いてみますか？」
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 あなたの目標
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. 生徒がPDF教材を**最後まで読み切る**ことをサポート
+2. 各ページで**必ず1つは理解させる**
+3. 生徒が**自信を持って次へ進める**ように励ます
+4. **質問しやすい雰囲気**を作る
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+さあ、生徒との対話を始めましょう！📚✨
 理解を深める:
 「実は、数学でいう「関数」はもう少し違う意味で使われるんです。一緒に見てみましょうか？」
 次のステップへ:
@@ -376,10 +491,21 @@ ${!isNaN(currentPage) ? - `**現在のページ:** ${currentPage}` : ""}
 
     const extractedText = response.candidates[0].content.parts[0].text
 
+    // ✅ Extract token usage information from Gemini response
+    const usageMetadata = response.usageMetadata || {};
+    const tokenUsage = {
+        promptTokens: usageMetadata.promptTokenCount || 0,
+        candidatesTokens: usageMetadata.candidatesTokenCount || 0,
+        totalTokens: usageMetadata.totalTokenCount || 0,
+    };
+
+    console.log("📊 Token Usage:", tokenUsage);
+
     return {
         candidates: response.candidates,
         answer: extractedText,
-        question: query
+        question: query,
+        tokenUsage: tokenUsage // ✅ Include token usage in response
     }
 
     //         // ## あなたの役割
