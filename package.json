@@ -27,7 +27,7 @@
     "multer": "^2.0.2",
     "pdf-parse": "^1.1.1",
     "pdf-to-img": "^5.0.0",
-    "pdfjs-dist": "^5.4.296",
+    "pdfjs-dist": "^3.11.174",
     "slugify": "^1.6.6",
     "tsx": "^4.20.6",
     "wanakana": "^5.3.1",
@@ -40,6 +40,5 @@
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.9.3"
-  },
-  "type": "module"
+  }
 }
