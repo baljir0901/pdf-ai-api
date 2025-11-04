@@ -4,13 +4,13 @@ const fs = require("fs").promises;
 const { GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI } = require('@langchain/google-genai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { WeaviateStore } = require('@langchain/weaviate');
-// Use CommonJS compatible pdfjs-dist (Vercel/TypeScript compatibility)
 const pdfjs = require("pdfjs-dist/legacy/build/pdf.js");
 const { RecursiveCharacterTextSplitter } = require('@langchain/textsplitters');
 const { default: supabase } = require("./supabase");
 const weaviateLib = require('weaviate-client').default;
 const { PDFLoader } = require('@langchain/community/document_loaders/fs/pdf');
-const { GoogleGenAI } = require('@google/genai');
+import { GoogleGenAI } from '@google/genai';
+import { type } from 'os';
 
 // PDF.js worker setup (Япон хэлний тохиргоо)
 // pdfjs.GlobalWorkerOptions.workerSrc = '../../node_modules/pdfjs-dist/build/pdf.worker.mjs';
@@ -64,7 +64,7 @@ const embeddings = new GoogleGenerativeAIEmbeddings({
  */
 
 
-export async function ingestPdfToVectorDB(pdfPath, indexName = "default_books_index") {
+async function ingestPdfToVectorDB(pdfPath, indexName = "default_books_index") {
     const client = await makeWeaviateClient()
     try {
         console.time(`Ingestion process for ${pdfPath}`);
@@ -77,6 +77,12 @@ export async function ingestPdfToVectorDB(pdfPath, indexName = "default_books_in
         console.time("1. Loading PDF");
         const dataBuffer = await fs.readFile(pdfPath);
 
+
+        const loader = new PDFLoader(pdfPath, {
+            pdfjs: () => pdfjs
+        });
+        const rawDocs2 = await loader.load();
+        await fs.writeFile("test-docs2.json", JSON.stringify(rawDocs2, null, 2))
         // cMaps болон standard fonts зам (ABSOLUTE PATH)
         const nodeModulesPath = path.resolve(__dirname, '../../node_modules/pdfjs-dist');
         const cmapsPath = path.join(nodeModulesPath, 'cmaps').replace(/\\/g, '/') + '/';
