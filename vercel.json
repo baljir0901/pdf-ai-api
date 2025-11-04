@@ -9,7 +9,7 @@
   "routes": [
     {
       "src": "/health",
-      "dest": "src/index.js"
+      "dest": "dist/index.js"
     },
     {
       "src": "/api/v1/(.*)",
