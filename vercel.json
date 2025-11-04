@@ -8,19 +8,17 @@
   ],
   "routes": [
     {
-      "src": "/health",
-      "dest": "src/index.js"
-    },
-    {
-      "src": "/api/v1/(.*)",
-      "dest": "dist/index.js"
-    },
-    {
       "src": "/(.*)",
       "dest": "src/index.js"
     }
   ],
   "env": {
     "NODE_ENV": "production"
+  },
+  "functions": {
+    "src/index.js": {
+      "maxDuration": 60,
+      "memory": 3008
+    }
   }
 }
