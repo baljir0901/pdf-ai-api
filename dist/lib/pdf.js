@@ -11,8 +11,7 @@ const { RecursiveCharacterTextSplitter } = require('@langchain/textsplitters');
 const { default: supabase } = require("./supabase");
 const weaviateLib = require('weaviate-client').default;
 const { PDFLoader } = require('@langchain/community/document_loaders/fs/pdf');
-const genai_1 = require("@google/genai");
-const os_1 = require("os");
+const { GoogleGenAI } = require('@google/genai');
 // PDF.js worker setup (Япон хэлний тохиргоо)
 // pdfjs.GlobalWorkerOptions.workerSrc = '../../node_modules/pdfjs-dist/build/pdf.worker.mjs';
 // --- Weaviate client ---
@@ -67,11 +66,6 @@ async function ingestPdfToVectorDB(pdfPath, indexName = "default_books_index") {
         // 1. PDF-г унших (Япон хэл дэмжсэн тохиргоо)
         console.time("1. Loading PDF");
         const dataBuffer = await fs.readFile(pdfPath);
-        const loader = new PDFLoader(pdfPath, {
-            pdfjs: () => pdfjs
-        });
-        const rawDocs2 = await loader.load();
-        await fs.writeFile("test-docs2.json", JSON.stringify(rawDocs2, null, 2));
         // cMaps болон standard fonts зам (ABSOLUTE PATH)
         const nodeModulesPath = path.resolve(__dirname, '../../node_modules/pdfjs-dist');
         const cmapsPath = path.join(nodeModulesPath, 'cmaps').replace(/\\/g, '/') + '/';
@@ -197,7 +191,7 @@ async function askQuestion(query, indexName, bookName, conversationId, pdfUrl, c
         return `User: ${q}\nAssistant: ${a}`;
     })
         .join('\n---\n');
-    const genAI = new genai_1.GoogleGenAI(process.env.GOOGLE_API_KEY);
+    const genAI = new GoogleGenAI(process.env.GOOGLE_API_KEY);
     const pdfResponse = await fetch(pdfUrl);
     if (!pdfResponse.ok) {
         throw new Error('Failed to fetch PDF');
@@ -321,7 +315,7 @@ ${!isNaN(currentPage) ? -`**現在のページ:** ${currentPage}` : ""}
         }
     ];
     console.log({ text });
-    const ai = new genai_1.GoogleGenAI({
+    const ai = new GoogleGenAI({
         apiKey: process.env.GOOGLE_API_KEY,
     });
     const response = await ai.models.generateContent({

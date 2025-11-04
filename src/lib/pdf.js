@@ -76,12 +76,6 @@ export async function ingestPdfToVectorDB(pdfPath, indexName = "default_books_in
         console.time("1. Loading PDF");
         const dataBuffer = await fs.readFile(pdfPath);
 
-
-        const loader = new PDFLoader(pdfPath, {
-            pdfjs: () => pdfjs
-        });
-        const rawDocs2 = await loader.load();
-        await fs.writeFile("test-docs2.json", JSON.stringify(rawDocs2, null, 2))
         // cMaps болон standard fonts зам (ABSOLUTE PATH)
         const nodeModulesPath = path.resolve(__dirname, '../../node_modules/pdfjs-dist');
         const cmapsPath = path.join(nodeModulesPath, 'cmaps').replace(/\\/g, '/') + '/';
