@@ -9,6 +9,7 @@ const { RecursiveCharacterTextSplitter } = require('@langchain/textsplitters');
 const { default: supabase } = require("./supabase");
 const weaviateLib = require('weaviate-client').default;
 const { PDFLoader } = require('@langchain/community/document_loaders/fs/pdf');
+const { createPDFChatPrompt } = require('./pdf-chat-prompt'); // ✅ NEW: Extracted prompt
 import { GoogleGenAI } from '@google/genai';
 import { type } from 'os';
 
