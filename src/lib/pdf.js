@@ -472,10 +472,6 @@ yag「(1) −0.9 + 0.7 =
         {
             role: "model",
             parts: [
-                {
-                    text: qaSystemPrompt,
-                    type: "text"
-                },
                 (text && text.length > 0) ? ({
                     type: "text",
                     text: `【PDF教材の内容】\n${text}`
@@ -535,6 +531,7 @@ yag「(1) −0.9 + 0.7 =
             temperature: 0.3,  // Lower temperature for consistent answer checking
             topP: 0.95,
             topK: 40,
+             systemInstruction: qaSystemPrompt
         },
         generationConfig: {
             temperature: 0.3,  // Lower temperature for consistent answer checking
